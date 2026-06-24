@@ -1,6 +1,7 @@
 # Streamlit 기반 KSL 수어 번역 대시보드
 # 웹캠 영상, 현재 인식 결과, 예측 확률, 최근 인식 기록 표시
 
+from label_map import to_display_label
 import time
 from pathlib import Path
 
