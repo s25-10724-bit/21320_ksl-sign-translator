@@ -51,14 +51,9 @@ def load_scaler(path):
 
 def preprocess_sequence(sequence, max_frames, mean, scale):
     sequence = np.asarray(sequence, dtype=np.float32)
-
-    sequence = resample_or_pad(
-        sequence,
-        max_frames=max_frames
-    )
+    sequence = resample_or_pad(sequence, max_frames=max_frames)
 
     x = sequence.reshape(1, -1)
-
     x = (x - mean) / scale
 
     return x.astype(np.float32)
@@ -73,16 +68,10 @@ class TFLiteClassifier:
         self.output_details = self.interpreter.get_output_details()
 
     def predict(self, x):
-        self.interpreter.set_tensor(
-            self.input_details[0]["index"],
-            x
-        )
-
+        self.interpreter.set_tensor(self.input_details[0]["index"], x)
         self.interpreter.invoke()
 
-        output = self.interpreter.get_tensor(
-            self.output_details[0]["index"]
-        )
+        output = self.interpreter.get_tensor(self.output_details[0]["index"])
 
         return output[0]
 
@@ -102,6 +91,129 @@ def check_model_files():
     return missing_files
 
 
+def apply_style():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 45%, #ecfeff 100%);
+        }
+
+        .main-title {
+            font-size: 44px;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .sub-title {
+            font-size: 18px;
+            color: #475569;
+            margin-bottom: 28px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 24px;
+            border-radius: 22px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            margin-bottom: 18px;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+            padding: 30px;
+            border-radius: 24px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 12px 36px rgba(37, 99, 235, 0.25);
+            margin-bottom: 18px;
+        }
+
+        .result-label {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .result-text {
+            font-size: 48px;
+            font-weight: 900;
+            line-height: 1.2;
+        }
+
+        .small-muted {
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .word-chip {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #075985;
+            padding: 8px 14px;
+            border-radius: 999px;
+            margin: 4px;
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .status-good {
+            color: #059669;
+            font-weight: 800;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_header():
+    st.markdown(
+        """
+        <div class="main-title">KSL 수어 번역 대시보드</div>
+        <div class="sub-title">
+            웹캠으로 입력된 한국 수어 동작을 인식하고 한국어 텍스트로 변환합니다.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_word_chips(labels):
+    chips = ""
+
+    for label in labels:
+        chips += f'<span class="word-chip">{to_display_label(label)}</span>'
+
+    st.markdown(
+        f"""
+        <div class="card">
+            <h3>인식 가능한 단어</h3>
+            <div>{chips}</div>
+            <p class="small-muted">
+                현재 모델은 3개 단어를 대상으로 학습된 프로토타입입니다.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_result_card(label):
+    st.markdown(
+        f"""
+        <div class="result-card">
+            <div class="result-label">확정 인식 결과</div>
+            <div class="result-text">{label}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 def main():
     st.set_page_config(
         page_title="KSL 수어 번역 대시보드",
@@ -109,55 +221,99 @@ def main():
         layout="wide"
     )
 
-    st.title("KSL 수어 번역 프로그램")
-    st.write("웹캠으로 입력된 수어 동작을 인식하여 한국어 텍스트로 출력하는 대시보드입니다.")
+    apply_style()
+    render_header()
 
     missing_files = check_model_files()
 
     if missing_files:
-        st.error("모델 파일이 아직 없습니다.")
-        st.write("먼저 Colab에서 학습을 끝낸 뒤 models 폴더를 프로젝트에 넣어야 합니다.")
-        st.write("없는 파일 목록:")
+        st.error("모델 파일이 없습니다.")
+        st.write("아래 파일들이 models 폴더 안에 있어야 합니다.")
+
         for file in missing_files:
             st.write("-", file)
+
         return
 
     labels = load_labels(LABEL_PATH)
     mean, scale = load_scaler(SCALER_PATH)
     classifier = TFLiteClassifier(MODEL_PATH)
 
-    st.success("모델 파일을 정상적으로 불러왔습니다.")
+    left_col, right_col = st.columns([1.6, 1])
 
-    st.subheader("인식 가능한 단어")
+    with right_col:
+        st.markdown(
+            """
+            <div class="card">
+                <h3>모델 상태</h3>
+                <p class="status-good">모델 파일 정상 로드 완료</p>
+                <p class="small-muted">
+                    TensorFlow Lite 모델, 라벨 파일, 스케일러 파일을 정상적으로 불러왔습니다.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    display_labels = [to_display_label(label) for label in labels]
-    st.write(", ".join(display_labels))
+        render_word_chips(labels)
 
-    start_button = st.button("실시간 인식 시작")
+        st.markdown(
+            """
+            <div class="card">
+                <h3>사용 방법</h3>
+                <p class="small-muted">
+                1. 실시간 인식 시작 버튼을 누릅니다.<br>
+                2. 웹캠 앞에서 손이 잘 보이도록 합니다.<br>
+                3. 안녕하세요, 감사합니다, 미안합니다 동작을 천천히 수행합니다.<br>
+                4. 종료하려면 실행 창에서 Ctrl + C를 누릅니다.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with left_col:
+        st.markdown(
+            """
+            <div class="card">
+                <h3>실시간 웹캠 화면</h3>
+                <p class="small-muted">
+                    MediaPipe가 손의 랜드마크를 추출하고, 학습된 모델이 수어 단어를 예측합니다.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        start_button = st.button("실시간 인식 시작", use_container_width=True)
+
+        video_area = st.empty()
+        waiting_area = st.empty()
 
     if not start_button:
-        st.info("버튼을 누르면 웹캠 인식이 시작됩니다.")
-        st.warning("실행을 멈추려면 Colab이 아니라 로컬 PC 터미널에서 Ctrl + C를 누르세요.")
+        with left_col:
+            waiting_area.info("버튼을 누르면 웹캠 인식이 시작됩니다.")
+        with right_col:
+            render_result_card("대기 중")
         return
-
-    video_area = st.empty()
-    result_area = st.empty()
-    confidence_area = st.empty()
-    history_area = st.empty()
 
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
-        st.error("웹캠을 열 수 없습니다. 이 대시보드는 Colab이 아니라 웹캠이 연결된 컴퓨터에서 실행해야 합니다.")
+        st.error("웹캠을 열 수 없습니다. 카메라 연결 또는 권한을 확인하세요.")
         return
+
+    result_area = st.empty()
+    confidence_area = st.empty()
+    history_area = st.empty()
 
     sequence = []
 
     last_label = None
     stable_counter = 0
-    confirmed_label = "인식 대기 중"
-    confirmed_confidence = 0.0
 
+    confirmed_label = "대기 중"
+    confirmed_confidence = 0.0
     history = []
 
     mp_hands = mp.solutions.hands
@@ -174,7 +330,7 @@ def main():
             ok, frame = cap.read()
 
             if not ok:
-                st.error("웹캠 프레임을 읽을 수 없습니다.")
+                st.error("웹캠 화면을 읽을 수 없습니다.")
                 break
 
             frame = cv2.flip(frame, 1)
@@ -191,13 +347,12 @@ def main():
                     )
 
             feature = extract_frame_landmarks(frame, hands)
-
             sequence.append(feature)
 
             if len(sequence) > DEFAULT_MAX_FRAMES:
                 sequence = sequence[-DEFAULT_MAX_FRAMES:]
 
-            current_label = "인식 대기 중"
+            current_label = "분석 중"
             current_confidence = 0.0
 
             if len(sequence) >= max(5, DEFAULT_MAX_FRAMES // 3):
@@ -212,10 +367,13 @@ def main():
 
                 predicted_index = int(np.argmax(probabilities))
                 current_confidence = float(probabilities[predicted_index])
+
                 raw_label = labels[predicted_index]
-                current_label = to_display_label(raw_label)
+                display_label = to_display_label(raw_label)
 
                 if current_confidence >= CONFIDENCE_THRESHOLD:
+                    current_label = display_label
+
                     if raw_label == last_label:
                         stable_counter += 1
                     else:
@@ -223,60 +381,61 @@ def main():
                         last_label = raw_label
 
                     if stable_counter >= STABLE_COUNT:
-                        confirmed_label = current_label
+                        confirmed_label = display_label
                         confirmed_confidence = current_confidence
 
                         if not history or history[-1] != confirmed_label:
                             history.append(confirmed_label)
 
-                        if len(history) > 10:
-                            history = history[-10:]
+                        if len(history) > 8:
+                            history = history[-8:]
 
                 else:
+                    current_label = "확신 부족"
                     stable_counter = 0
                     last_label = None
-                    current_label = "확신 부족"
-
-            cv2.rectangle(
-                frame,
-                (0, 0),
-                (frame.shape[1], 80),
-                (0, 0, 0),
-                -1
-            )
-
-            cv2.putText(
-                frame,
-                f"{current_confidence:.2f}",
-                (20, 50),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.2,
-                (255, 255, 255),
-                2,
-                cv2.LINE_AA
-            )
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            video_area.image(
-                frame_rgb,
-                channels="RGB",
-                use_container_width=True
-            )
+            with left_col:
+                video_area.image(
+                    frame_rgb,
+                    channels="RGB",
+                    use_container_width=True
+                )
 
-            result_area.metric(
-                label="확정 인식 결과",
-                value=confirmed_label
-            )
+            with right_col:
+                with result_area.container():
+                    render_result_card(confirmed_label)
 
-            confidence_area.progress(
-                min(max(confirmed_confidence, 0.0), 1.0)
-            )
+                confidence_area.markdown(
+                    f"""
+                    <div class="card">
+                        <h3>신뢰도</h3>
+                        <p class="small-muted">
+                            현재 예측: <b>{current_label}</b><br>
+                            현재 신뢰도: <b>{current_confidence:.2f}</b><br>
+                            확정 신뢰도: <b>{confirmed_confidence:.2f}</b>
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-            if history:
-                history_area.write("최근 인식 기록:", " → ".join(history))
-            else:
-                history_area.write("최근 인식 기록 없음")
+                if history:
+                    history_text = " → ".join(history)
+                else:
+                    history_text = "아직 인식 기록 없음"
+
+                history_area.markdown(
+                    f"""
+                    <div class="card">
+                        <h3>최근 인식 기록</h3>
+                        <p class="small-muted">{history_text}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
             time.sleep(0.03)
 
