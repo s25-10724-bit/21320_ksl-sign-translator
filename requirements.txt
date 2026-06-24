@@ -4,3 +4,4 @@ numpy
 scikit-learn
 tensorflow
 pyttsx3
+streamlit
