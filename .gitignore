@@ -1,15 +1,18 @@
+downloaded_data/
+dataset/
+models/
+
 __pycache__/
 *.pyc
-.venv/
-venv/
 
-models/*.keras
-models/*.tflite
-models/*.npz
-models/labels.txt
+*.zip
+*.7z
+*.rar
+*.mp4
+*.avi
+*.mov
+*.mkv
 
-dataset/raw/**/*.mp4
-dataset/raw/**/*.avi
-dataset/raw/**/*.mov
-dataset/raw/**/*.mkv
-dataset/raw/**/*.webm
+*.keras
+*.tflite
+*.npz
